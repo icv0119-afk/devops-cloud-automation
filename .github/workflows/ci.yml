@@ -28,3 +28,26 @@ jobs:
           context: ./app
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/${{ secrets.IMAGE_NAME }}:latest
+      - name: Deploy to EC2 via SSH and Fix Port Mapping
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.IMAGE_NAME }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          key: ${{ secrets.DOCKER_PASSWORD }}
+          script: |
+            echo "--- Starting Deployment on EC2 ---"
+            sudo docker rm -f devops-app || true
+            echo "Old container removed."
+            sudo docker pull ${{ secrets.DOCKER_USERNAME }}/${{ secrets.IMAGE_NAME }}:latest
+            echo "Latest image pulled."
+            sudo docker run -d \
+            --name devops-app \
+            -p 3000:8000 \
+            --restart always \
+            ${{ secrets.DOCKER_USERNAME }}/${{ secrets.IMAGE_NAME }}:latest
+            echo "New container started with correct port 3000:8000."
+            sudo sed -i 's/127.0.0.1:8000/127.0.0.1:3000/g' /etc/nginx/conf.d/devops-app.conf || true
+            sudo systemctl reload nginx
+            echo "Nginx reloaded, pointing to port 3000."
+            sudo docker ps
+            echo "--- Deployment Complete ---"       
