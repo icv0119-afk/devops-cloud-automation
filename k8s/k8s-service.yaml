@@ -1,0 +1,20 @@
+# Kubernetes API 版本
+apiVersion: v1
+# 資源類型：Service
+kind: Service
+metadata:
+  # Service 名稱
+  name: fastapi-app-service
+spec:
+  # 選擇器：將流量導向到所有帶有 app: fastapi-app 標籤的 Pod
+  selector:
+    app: fastapi-app
+  # 類型：LoadBalancer 會向雲服務商 (如 AWS, GCP) 請求一個外部負載平衡器
+  # 一旦部署成功，您將會得到一個外部 IP 地址。
+  type: LoadBalancer 
+  ports:
+    # Service 接收的 Port (外部訪問 Port 80)
+    - protocol: TCP
+      port: 80
+      # 將流量導向 Pod 內部的 Port 8000
+      targetPort: 8000
