@@ -36,12 +36,25 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             echo "--- Starting Docker Compose Deployment ---"
-            cd ~/devops-project || { echo "Directory not found"; exit 1; }
-            sudo docker stop devops-app || true
-            sudo docker rm -f devops-app || true
+            cd ~/devops-project || { mkdir -p ~/devops-project && cd ~/devops-project; }
+            sudo systemctl stop nginx || true
+            sudo systemctl disable nginx || true
+            mkdir -p nginx
+            sudo bash -c "cat << 'EOF' > nginx/default.conf
+            server {
+                listen 80;
+                server_name _;
+                location / {
+                    proxy_pass http://app:8000;
+                    proxy_set_header Host \$host;
+                    proxy_set_header X-Real-IP \$remote_addr;
+                    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                }
+            }
+            EOF"
+            sudo docker-compose down --remove-orphans || true
             sudo docker-compose pull
-            sudo docker-compose up -d --remove-orphans
-            sudo nginx -t && sudo systemctl restart nginx || true
-            echo "--- Current Running Containers ---"
+            sudo docker-compose up -d --force-recreate
+            sleep 5
             sudo docker ps
-            echo "--- Deployment Complete ---"
+            sudo docker-compose exec -T nginx curl -s http://app:8000/version || echo "內部通訊失敗"
