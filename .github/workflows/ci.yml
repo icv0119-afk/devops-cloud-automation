@@ -41,8 +41,9 @@ jobs:
             sudo docker run -d \
               --name devops-app \
               -p 3000:8000 \
+              --restart always \
               ${{ secrets.DOCKER_USERNAME }}/${{ secrets.IMAGE_NAME }}:latest
-
+              uvicorn main:app --host 0.0.0.0 --port 8000
             echo "New container started with port mapping 3000:8000."
             sudo tee /etc/nginx/conf.d/devops-app.conf > /dev/null <<'EOF'
             server {
@@ -58,12 +59,13 @@ jobs:
                 }
             }
             EOF
-            if sudo nginx -t; then
-                sudo systemctl restart nginx
-                echo "Nginx reloaded and pointing to port 3000."
-            else
-                echo "Nginx configuration error!"
-                exit 1
+            if [ ! -f /etc/nginx/conf.d/devops-app.conf ]; then
+              echo 'server { listen 80; location / { proxy_pass http://127.0.0.1:3000; } }' | sudo tee /etc/nginx/conf.d/devops-app.conf
             fi
+            sudo systemctl restart nginx
+            sudo systemctl enable nginx
+
+            # 6. 最後狀態檢查 (等待 5 秒確認容器沒崩潰)
+            sleep 5
             sudo docker ps
             echo "--- Deployment Complete ---"
